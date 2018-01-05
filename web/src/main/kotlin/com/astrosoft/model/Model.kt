@@ -6,7 +6,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.github.vok.framework.sql2o.*
 import com.github.vok.framework.sql2o.vaadin.and
 import com.github.vok.framework.sql2o.vaadin.dataProvider
-import com.github.vok.framework.sql2o.vaadin.getAll
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -26,33 +25,6 @@ data class Apto(
 
   val endereco
     get() = idEndereco?.let { Endereco.findById(it) }
-}
-
-@Table("enderecos")
-data class Endereco(
-        override var id: Long? = null,
-        var tipoEndereco: ETipoEndereco? = ETipoEndereco.DEPOSITO,
-        var observacao: String? = "",
-        var localizacao: String? = null,
-        var tipoNivel: ETipoNivel? = null
-                   ) : Entity<Long> {
-  companion object : Dao<Endereco>
-
-  @get:JsonIgnore
-  val apto
-    get() = Apto.dataProvider.and { Apto::idEndereco eq id }.getAll().firstOrNull()
-
-  @get:JsonIgnore
-  val saldos
-    get() = Saldo.dataProvider.and { Saldo::idEndereco eq id }
-
-  @get:JsonIgnore
-  val transferenciaEnt
-    get() = Transferencia.dataProvider.and { Transferencia::idEnderecoEnt eq id }
-
-  @get:JsonIgnore
-  val transferenciaSai
-    get() = Transferencia.dataProvider.and { Transferencia::idEnderecoSai eq id }
 }
 
 @Table("movimentacoes")

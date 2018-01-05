@@ -1,11 +1,14 @@
 package com.astrosoft.model
 
 import com.astrosoft.model.enums.EPalet
+import com.astrosoft.model.enums.EYES_NO
+import com.astrosoft.utils.readFile
 import com.astrosoft.vok.ViewException
 import com.github.vok.framework.sql2o.Dao
 import com.github.vok.framework.sql2o.Entity
 import com.github.vok.framework.sql2o.Table
 import com.github.vok.framework.sql2o.findById
+import com.github.vok.framework.sql2o.vaadin.SqlDataProvider
 import com.github.vok.framework.sql2o.vaadin.and
 import com.github.vok.framework.sql2o.vaadin.dataProvider
 import com.github.vok.framework.sql2o.vaadin.getAll
@@ -18,7 +21,7 @@ data class Transferencia(
         var dataHoraMov: LocalDateTime? = LocalDateTime.now(),
         var observacao: String? = "",
         var quantMov: BigDecimal? = BigDecimal.ZERO,
-        var confirmacao: Boolean? = false,
+        var confirmacao: EYES_NO? = EYES_NO.N,
         var idEnderecoEnt: Long? = 0,
         var idMovProduto: Long? = 0,
         var idEnderecoSai: Long? = 0,
@@ -49,7 +52,7 @@ data class Transferencia(
   }
 
   override fun delete() {
-    if (confirmacao == true) throw ViewException("Não é possível remover uma transferencia confirmada")
+    if (confirmacao == EYES_NO.Y) throw ViewException("Não é possível remover uma transferencia confirmada")
     val mov = movProduto ?: throw ViewException("A tranferencia não possui produto")
 
     val produto = mov.produto ?: throw ViewException("A tranferencia não possui produto")
@@ -77,19 +80,17 @@ data class Transferencia(
     return dataProvider.and { Transferencia::idUser eq idUser }.getAll()
   }
 
-  fun findOrdemServico(confirmado: Boolean?,
+  fun findOrdemServico(confirmado: EYES_NO?,
                        empilhador: User?,
                        rua: Rua?,
                        produto: Produto?): List<Transferencia> {
-    return Transferencia.dataProvider
-            .and { Transferencia::confirmacao eq confirmado or confirmado.isNull() }
-            .and { Transferencia::idUser eq empilhador?.id or empilhador.isNull() }
-            .getAll()
-            .filter { transferencia ->
+    val sql = "/sql/findOrdemServicoUser.sql".readFile()
 
-              val entS = transferencia.enderecoSai
-
-              true
-            }
+    val params = mapOf("rua" to (rua?.id ?: 0),
+                       "confirmado" to (confirmado?.toString() ?: ""),
+                       "empilhador" to (empilhador?.id ?: 0),
+                       "produto" to (produto?.id ?: 0))
+    val provider = SqlDataProvider(Transferencia::class.java, sql, params, { it.id ?: 0 })
+    return provider.getAll()
   }
 }
