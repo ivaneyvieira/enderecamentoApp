@@ -41,4 +41,9 @@ dependencies {
 
     // Kotlin
     compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
+
+    compile 'mysql:mysql-connector-java:5.1.40'
+    compile 'com.github.appreciated:material:1.1.7'
+    compile 'org.vaadin.crudui:crudui:2.1.5'
+    compile 'com.jarektoro:responsive-layout:2.1.1'
 }

@@ -1,38 +1,136 @@
-// If you edit this file you need to compile the theme. See README.md for details.
-
-// Global variable overrides. Must be declared before importing Valo.
-
-// Defines the plaintext font size, weight and family. Font size affects general component sizing.
-//$v-font-size: 16px;
-//$v-font-weight: 300;
-//$v-font-family: "Open Sans", sans-serif;
-
-// Defines the border used by all components.
-//$v-border: 1px solid (v-shade 0.7);
-//$v-border-radius: 4px;
-
-// Affects the color of some component elements, e.g Button, Panel title, etc
-//$v-background-color: hsl(210, 0%, 98%);
-// Affects the color of content areas, e.g  Panel and Window content, TextField input etc
-//$v-app-background-color: $v-background-color;
-
-// Affects the visual appearance of all components
-//$v-gradient: v-linear 8%;
-//$v-bevel-depth: 30%;
-//$v-shadow-opacity: 5%;
-
-// Defines colors for indicating status (focus, success, failure)
-//$v-focus-color: valo-focus-color(); // Calculates a suitable color automatically
-//$v-friendly-color: #2c9720;
-//$v-error-indicator-color: #ed473b;
-
-// For more information, see: https://vaadin.com/book/-/page/themes.valo.html
-// Example variants can be copy/pasted from https://vaadin.com/wiki/-/wiki/Main/Valo+Examples
+$v-font-size: 14px;
+$v-layout-margin-top: round($v-unit-size/3);
+$v-layout-margin-right: round($v-unit-size/3);
+$v-layout-margin-bottom: round($v-unit-size/3);
+$v-layout-margin-left: round($v-unit-size/3);
+$v-font-family: Helvetica, Arial, 'lucida grande', tahoma, verdana, arial, sans-serif;
+//$v-font-family: Roboto, sans-serif;
+// Main layout padding
+//$view-padding: round($v-unit-size / 1.5) !default;
+// Slight adjustment to menu background-color
+$valo-menu-background-color: #414B56;
 
 @import "../valo/valo.scss";
+
 
 @mixin mytheme {
   @include valo;
 
-  // Insert your own theme rules here
+  .v-grid-header,
+  .v-caption {
+    font-weight: bold;
+  }
+  .v-caption-mystyle {
+    font-weight: bold;
+  }
+  .right {
+    text-align: right;
+  }
+  .left {
+    text-align: left;
+  }
+  .center {
+    text-align: center;
+  }
+  .font_pequena {
+    font-size: 10%;
+  }
+  .box_rotate {
+    /* Firefox */
+    -moz-transform: rotate(-90deg) translate(0, 100%);
+    -moz-transform-origin: 0% 100%;
+    /* Opera */
+    -o-transform: rotate(-90deg) translate(0, 100%);
+    -o-transform-origin: 0% 100%;
+    /* Safari + Chrome */
+    -webkit-transform: rotate(-90deg) translate(0, 100%);
+    -webkit-transform-origin: 0% 100%;
+    /* IE */
+    -ms-transform: rotate(-90deg) translate(0, 100%);
+    -ms-transform-origin: 0% 100%;
+    /* Internet Explorer */
+    filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=3);
+  }
+  .box_select {
+    border-color: DodgerBlue;
+    cursor: pointer;
+    cursor: hand;
+    background-color: LightCyan;
+  }
+  .hand_select {
+    cursor: pointer;
+    cursor: hand;
+  }
+  .box_select:hover {
+    background-color: LightSkyBlue;
+  }
+  .box_mark {
+    background-color: DodgerBlue;
+  }
+  .sombra {
+    box-shadow: 3px 3px 5px #888888;
+  }
+  .apto_vazio {
+    background-color: Gainsboro;
+  }
+  .apto_ocupado {
+    background-color: NavajoWhite;
+  }
+  .box_nivel {
+    border-style: solid;
+    border-width: medium;
+    border-color: OrangeRed DodgerBlue;
+  }
+  .box_nivel_base {
+    border-style: solid solid none solid;
+    border-width: medium;
+    border-color: OrangeRed DodgerBlue;
+  }
+  .box_nivel_topo {
+    border-style: none none solid none;
+    border-width: medium;
+    border-color: OrangeRed DodgerBlue;
+  }
+  .border_less {
+    padding: 0;
+  }
+  .v-grid-row.grid_green > td {
+    background-color: #ccffcc;
+  }
+  .v-grid-row.grid_yellow > td {
+    background-color: #ffffcc;
+  }
+  .v-grid-row.grid_red > td {
+    background-color: #ccddcc;
+  }
+
+  .titulo_app {
+    color: valo-font-color($v-selection-color, 1);
+    background-color: $v-selection-color;
+  }
+
+  .img_obs {
+    filter: grayscale(1);
+  }
+
+  .img_select {
+    filter: contrast(0);
+  }
+
+  @keyframes blink {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  .img_blink {
+    animation: blink 1s;
+    animation-iteration-count: infinite;
+  }
+
 }

@@ -10,8 +10,8 @@ defaultTasks 'clean', 'build'
 
 
 allprojects {
-    group 'com.example.vok'
-    version '1.0-SNAPSHOT'
+    group 'com.astrosoft.enderecamento'
+    version '2.0'
 }
 
 subprojects {
