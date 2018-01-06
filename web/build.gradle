@@ -46,4 +46,5 @@ dependencies {
     compile 'com.github.appreciated:material:1.1.7'
     compile 'org.vaadin.crudui:crudui:2.1.5'
     compile 'com.jarektoro:responsive-layout:2.1.1'
+    compile 'org.imgscalr:imgscalr-lib:4.2'
 }

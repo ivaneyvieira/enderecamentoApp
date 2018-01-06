@@ -22,7 +22,7 @@ abstract class EntityId : Entity<Long> {
   }
 }
 
-fun <T: EntityId> scriptRunner(classe : Class<T>, script: String, params: Map<String, Any> = mapOf()): List<T> {
+fun <T: Any> scriptRunner(classe : Class<T>, script: String, params: Map<String, Any> = mapOf()): List<T> {
   var scriptParam = ""
   params.forEach { (param, value) ->
     scriptParam = script.replace(":$param", "$value")
