@@ -1,11 +1,11 @@
 package com.astrosoft.model.legado
 
-import br.com.astrosoft.model.framework.utils.DB
-import br.com.astrosoft.model.framework.utils.lpad
 import com.astrosoft.model.legado.beans.NotaEntrada
 import com.astrosoft.model.legado.beans.ProdutoNotaEntrada
 import com.astrosoft.model.legado.beans.ProdutoSaci
 import com.astrosoft.model.legado.beans.UserSenha
+import com.astrosoft.utils.DB
+import com.astrosoft.utils.lpad
 
 class QuerySaci : QueryDB(driver, url, username, password) {
   fun notaEntrada(invno: Int, nfname: String, invse: String): NotaEntrada? {

@@ -1,6 +1,6 @@
 package com.astrosoft.model.legado
 
-import br.com.astrosoft.model.framework.utils.SystemUtils
+import com.astrosoft.utils.readFile
 import org.sql2o.Query
 import org.sql2o.Sql2o
 
@@ -21,7 +21,7 @@ open class QueryDB(driver: String, url: String, username: String, password: Stri
   }
 
   protected fun <T> query(file: String, lambda: (Query) -> T): T {
-    val sql = SystemUtils.readFile(file)
+    val sql = file.readFile()
     val con = this.sql2o.open()
     val query = con.createQuery(sql)
     val ret = lambda(query)

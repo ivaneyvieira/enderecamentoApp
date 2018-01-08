@@ -1,6 +1,5 @@
 package br.com.pintos.legado
 
-import br.com.astrosoft.model.framework.utils.DB
 import com.astrosoft.model.legado.QueryDB
 import com.astrosoft.model.legado.beans.ImagemChapa
 import com.astrosoft.utils.DB
