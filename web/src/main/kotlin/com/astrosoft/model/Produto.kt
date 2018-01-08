@@ -1,5 +1,6 @@
 package com.astrosoft.model
 
+import com.astrosoft.model.enums.EMovTipo
 import com.astrosoft.model.util.scriptRunner
 import com.astrosoft.utils.lpad
 import com.astrosoft.utils.readFile
@@ -11,6 +12,7 @@ import com.github.vok.framework.sql2o.vaadin.and
 import com.github.vok.framework.sql2o.vaadin.dataProvider
 import com.github.vok.framework.sql2o.vaadin.getAll
 import java.math.BigDecimal
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 @Table("produtos")
@@ -82,15 +84,16 @@ data class Produto(
 
   private fun movimentacaoTransferencia(): Movimentacao {
     val chaveTransferencia = montaChaveTransferencia()
-    val movChave = MovimentacaoService.findMovimentacao(chaveTransferencia)
+    val movChave = Movimentacao.findMovimentacao(chaveTransferencia)
     return if (movChave == null) {
       val movimentacao = Movimentacao()
-      movimentacao.documento = bean.prdno.trim { it <= ' ' }
+      movimentacao.documento = prdno?.trim { it <= ' ' }?:""
       movimentacao.observacao = "Tranferencia Interna"
       movimentacao.chave = chaveTransferencia
       movimentacao.data = LocalDate.now()
-      movimentacao.tipoMov = br.com.astrosoft.model.enderecamento.entityEnum.EMovTipo.SAIDA
-      MovimentacaoService.save(movimentacao)
+      movimentacao.tipoMov = EMovTipo.SAIDA
+      movimentacao.save()
+      movimentacao
     }
     else movChave
   }
@@ -142,14 +145,6 @@ data class Produto(
     return fetch { query ->
       query.select(e).from(s).innerJoin(e).on(s.idEndereco.eq(e.id)).where(s.idProduto.eq(bean.id).and(s.saldoConfirmado.gt(
               0))).distinct()
-    }
-  }
-
-  fun enderecos(produto: Produto): List<Endereco> {
-    val s = QSaldo.saldo
-    val e = QEndereco.endereco
-    return fetch { query ->
-      query.select(e).from(s).innerJoin(e).on(s.idEndereco.eq(e.id)).where(s.idProduto.eq(produto.id)).distinct()
     }
   }
 

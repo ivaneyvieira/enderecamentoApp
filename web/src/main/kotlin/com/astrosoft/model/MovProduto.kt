@@ -76,12 +76,12 @@ having  m.quantMov > IFNULL(sum(t.quantMov), 0)
     return BigDecimal.valueOf(quant)
   }
 
-  fun processaEnderecamento(bean: MovProduto, palet: EPalet, altura: ETipoAltura, ruas: List<Rua>) {
-    val quantMov = bean.quantMov.toDouble() - transferencias.getAll()
-            .filter { t -> t.confirmacao == EYES_NO.Y}.map { t -> t.quantMov?.toDouble()?:0.00 }.sum()
-    val quantPalete = bean.quantPalete
+  fun processaEnderecamento(palet: EPalet, altura: ETipoAltura, ruas: List<Rua>) {
+    val quantMov = quantMov?.toDouble() ?: 0.00 - transferencias.getAll()
+            .filter { t -> t.confirmacao == EYES_NO.Y }.map { t -> t.quantMov?.toDouble() ?: 0.00 }.sum()
+    val quantPalete = quantPalete
     //Enderecos onde o produto já esteve
-    val enderecosProduto = produto?.enderecos.orEmpty()
+    val enderecosProduto = produto?.enderecos?.getAll().orEmpty()
     //Enderecos livres
     val disponiveis = Endereco.disponiveis(palet, altura, ruas)
     //Intersecao entre os Enderecos do produto e enderecos disponiveis

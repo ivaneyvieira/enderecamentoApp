@@ -1,8 +1,11 @@
 package com.astrosoft.model
 
+import com.astrosoft.model.dtos.NivelApto
 import com.astrosoft.model.dtos.RuaPredio
-import com.astrosoft.model.enums.*
-import com.astrosoft.model.util.EntityId
+import com.astrosoft.model.enums.ELado
+import com.astrosoft.model.enums.EPalet
+import com.astrosoft.model.enums.ETipoAltura
+import com.astrosoft.model.enums.ETipoNivel
 import com.astrosoft.model.util.scriptRunner
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.github.vok.framework.sql2o.*
@@ -69,14 +72,27 @@ data class Rua(
         override var id: Long? = null,
         var numero: String? = ""
               ) : Entity<Long> {
-  companion object : Dao<Rua>
+  companion object : Dao<Rua> {
+    fun ruasPulmao(): List<Rua> {
+      var sql = """
+select distinct r.*
+from ruas as r
+  inner join predios as p
+    on p.idRua = r.id
+  inner join niveis as n
+    on n.idPredio = p.id
+where tipoNivel = 'PULMAO'
+    """.trimIndent()
+      return scriptRunner(Rua::class.java, sql)
+    }
+  }
 
   @get:JsonIgnore
   val predios
     get() = Predio.dataProvider.and { Predio::idRua eq id }
 
   val ruasPredioDeposito: List<RuaPredio> by lazy {
-    val sql ="""
+    val sql = """
 select r.id as idRua, r.numero as numeroRua,
        p.id as idPredio, p.numero as numeroPredio, lado
 from ruas as r
@@ -88,18 +104,6 @@ where r.numero <> '00'
     scriptRunner(RuaPredio::class.java, sql)
   }
 
-  fun ruasPulmao(): List<Rua> {
-    var sql = """
-select distinct r.*
-from ruas as r
-  inner join predios as p
-    on p.idRua = r.id
-  inner join niveis as n
-    on n.idPredio = p.id
-where tipoNivel = 'PULMAO'
-    """.trimIndent()
-    return scriptRunner(Rua::class.java, sql)
-  }
 
   private fun findNiveis(lado: ELado): List<Nivel> {
     val sql = """
@@ -113,38 +117,27 @@ where lado = $lado
     return scriptRunner(Nivel::class.java, sql)
   }
 
-  fun findNivelAptos(bean: Rua, lado: ELado): List<NivelApto> {
-    val r = QRua.rua
-    val p = QPredio.predio
-    val n = QNivel.nivel
-    val a = QApto.apto
-    val e = QEndereco.endereco
-    val s = QSaldo.saldo
-
-    val saldoConfirmado = CaseBuilder().
-            `when`(s.saldoConfirmado.gt(BigDecimal.ZERO)).then(s.saldoConfirmado).
-            otherwise(BigDecimal.ZERO).sum()
-    val saldoNConfirmado = CaseBuilder().
-            `when`(s.saldoNConfirmado.gt(BigDecimal.ZERO)).then(s.saldoNConfirmado).
-            otherwise(BigDecimal.ZERO).sum()
-
-    return fetch { q ->
-      q.select(n, a, saldoNConfirmado, saldoConfirmado).
-              from(r).
-              innerJoin(p).on(p.idRua.eq(r.id)).
-              innerJoin(n).on(n.idPredio.eq(p.id)).
-              innerJoin(a).on(a.idNivel.eq(n.id)).
-              innerJoin(e).on(a.idEndereco.eq(e.id)).
-              leftJoin(s).on(s.idEndereco.eq(e.id)).
-              where(r.eq(bean).and(p.lado.eq(lado))).
-              groupBy(a)
-    }.mapNotNull { t ->
-      val nivel = t.get(n) ?: return@mapNotNull null
-      val apto = t.get(a) ?: return@mapNotNull null
-      val saldoCon = t.get(saldoConfirmado) ?: return@mapNotNull null
-      val saldoNCon = t.get(saldoNConfirmado) ?: return@mapNotNull null
-      NivelApto(nivel, apto, saldoNCon, saldoCon)
-    }
+  fun findNivelAptos(lado: ELado): List<NivelApto> {
+    val sql = """
+select r.id as idRua, r.numero as numeroRua, p.id as idPredio, p.numero as numeroPredio, lado,
+  n.id as idNivel, n.numero as numeroNivel, n.tipoNivel, altura, a.id as idApto, a.numero as numeroApto,
+  IFNULL(SUM(saldoConfirmado), 0) as saldoConfirmado, IFNULL(SUM(saldoNConfirmado), 0) as saldoNConfirmado
+from ruas as r
+  inner join predios as p
+    ON p.idRua = r.id
+  inner join niveis as n
+    ON n.idPredio = p.id
+  inner join aptos as a
+    ON a.idNivel = n.id
+  inner join enderecos as e
+    ON e.id = a.idEndereco
+  left join saldos as s
+    ON e.id = s.idEndereco
+WHERE r.id = $id
+  and lado = $lado
+GROUP BY a.id
+    """.trimIndent()
+    return scriptRunner(NivelApto::class.java, sql)
   }
 }
 
