@@ -1,6 +1,7 @@
 package com.astrosoft.model
 
 import com.astrosoft.model.enums.EMovTipo
+import com.astrosoft.model.util.EntityId
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.github.vok.framework.sql2o.Dao
 import com.github.vok.framework.sql2o.Entity
@@ -19,7 +20,7 @@ data class Movimentacao(
         var data: LocalDate? = LocalDate.now(),
         var observacao: String? = "",
         var tipoMov: EMovTipo? = EMovTipo.ENTRADA
-                       ) : Entity<Long> {
+                       ) : EntityId() {
   companion object : Dao<Movimentacao> {
     fun findMovimentacao(chaveEntrada: String): Movimentacao? {
       return Movimentacao.dataProvider.and { Movimentacao::chave eq chaveEntrada }.getAll().firstOrNull()
@@ -37,6 +38,10 @@ data class Movimentacao(
     private fun montaChave(prefixo: String, strNumero: Int): String {
       return prefixo + DecimalFormat("00000000").format(strNumero)
     }
+
+    fun montaChave(prefixo: String, str: String): String {
+      return prefixo + str
+    }
   }
 
   @get:JsonIgnore
@@ -49,9 +54,4 @@ data class Movimentacao(
             .and { MovProduto::idProduto eq produto.id }.getAll()
             .firstOrNull()
   }
-
-  fun montaChave(prefixo: String, str: String): String {
-    return prefixo + str
-  }
-
 }

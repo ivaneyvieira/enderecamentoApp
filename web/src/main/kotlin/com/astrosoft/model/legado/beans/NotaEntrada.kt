@@ -1,12 +1,11 @@
 package com.astrosoft.model.legado.beans
 
-import br.com.astrosoft.model.enderecamento.jpaBeans.Movimentacao
-import br.com.astrosoft.model.enderecamento.services.MovimentacaoService
-import br.com.astrosoft.model.framework.exceptions.ViewException
-import br.com.astrosoft.model.framework.utils.toLocalDate
+import com.astrosoft.model.Movimentacao
+import com.astrosoft.model.enums.EMovTipo
+import com.astrosoft.utils.toLocalDate
+import com.astrosoft.vok.ViewException
 import java.time.LocalDate
-import java.util.ArrayList
-import java.util.Date
+import java.util.*
 
 class NotaEntrada {
   val invno: Int? = null
@@ -28,12 +27,13 @@ class NotaEntrada {
 
   fun saveNotaEntradaSaci(): Movimentacao {
     invno ?: throw ViewException("O número interno da nota não foi informado")
-    val mov = MovimentacaoService.findNotaEntrada(invno) ?: Movimentacao()
-    mov.chave = MovimentacaoService.montaChaveEntrada(invno)
+    val mov = Movimentacao.findNotaEntrada(invno) ?: Movimentacao()
+    mov.chave = Movimentacao.montaChaveEntrada(invno)
     mov.data = localData
     mov.documento = documento ?: ""
     mov.observacao = ""
-    mov.tipoMov = br.com.astrosoft.model.enderecamento.entityEnum.EMovTipo.ENTRADA
-    return MovimentacaoService.save(mov)
+    mov.tipoMov = EMovTipo.ENTRADA
+    mov.save()
+    return mov
   }
 }

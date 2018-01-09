@@ -1,6 +1,6 @@
 package com.astrosoft.vok
 
-import br.com.astrosoft.model.framework.jpaBeans.EntityJPA
+import com.astrosoft.model.util.EntityId
 import java.sql.SQLException
 
 fun causaSqlException(causa: Throwable?): SQLException? {
@@ -33,6 +33,6 @@ class UpdateException(causa: Throwable?) : UserException(causa, "Não foi possí
 
 class ViewException(menssagem: String) : UserException(null, menssagem)
 
-class BancoDadosException(menssagem: String, val entityJPA: EntityJPA) : DevException(null, menssagem)
+class BancoDadosException(menssagem: String, val entity: EntityId) : DevException(null, menssagem)
 
 

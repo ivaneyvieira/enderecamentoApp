@@ -4,6 +4,7 @@ import com.astrosoft.model.enums.EPalet
 import com.astrosoft.model.enums.EStatusEntrada
 import com.astrosoft.model.enums.ETipoAltura
 import com.astrosoft.model.enums.EYES_NO
+import com.astrosoft.model.util.EntityId
 import com.astrosoft.model.util.scriptRunner
 import com.astrosoft.vok.ViewException
 import com.fasterxml.jackson.annotation.JsonIgnore
@@ -21,7 +22,7 @@ data class MovProduto(
         var quantPalete: BigDecimal? = BigDecimal.ZERO,
         var idMovimentacao: Long? = 0,
         var idProduto: Long? = 0
-                     ) : Entity<Long> {
+                     ) : EntityId() {
   companion object : Dao<MovProduto>
 
   val produto
@@ -81,7 +82,7 @@ having  m.quantMov > IFNULL(sum(t.quantMov), 0)
             .filter { t -> t.confirmacao == EYES_NO.Y }.map { t -> t.quantMov?.toDouble() ?: 0.00 }.sum()
     val quantPalete = quantPalete
     //Enderecos onde o produto já esteve
-    val enderecosProduto = produto?.enderecos?.getAll().orEmpty()
+    val enderecosProduto = produto?.enderecosComSaldo().orEmpty()
     //Enderecos livres
     val disponiveis = Endereco.disponiveis(palet, altura, ruas)
     //Intersecao entre os Enderecos do produto e enderecos disponiveis
@@ -96,29 +97,30 @@ having  m.quantMov > IFNULL(sum(t.quantMov), 0)
     disponiveis.forEach { end ->
       if (!listaOrdenada.contains(end)) listaOrdenada.add(end)
     }
-    if (quantMov <= quantPalete.toDouble() * listaOrdenada.size) {
-      deleteTransferencias(bean)
+    if (quantMov <= ((quantPalete?.toDouble() ?: 0.00) * listaOrdenada.size)) {
+      deleteTransferencias()
       val enderecoS = Endereco.recebimento()
       var quant = quantMov
       var index = 0
       while (quant > 0) {
         val enderecoE = listaOrdenada[index++]
-        val quantEnd = if (quant > quantPalete.toDouble()) quantPalete.toDouble()
+        val quantEnd = if (quant > (quantPalete?.toDouble() ?: 0.00))
+          (quantPalete?.toDouble() ?: 0.00)
         else quant
         quant -= quantEnd
         val observacao = ""
         val confirmacao = EYES_NO.N
-        val movimentacao = Transferencia(idMovProduto = bean.id,
+        val movimentacao = Transferencia(idMovProduto = id,
                                          idEnderecoEnt = enderecoE.id,
                                          idEnderecoSai = enderecoS.id,
                                          quantMov = BigDecimal.valueOf(quantEnd),
                                          observacao = observacao,
                                          confirmacao = confirmacao)
         enderecoE.tipoPalet = palet
-        EnderecoService.save(enderecoE)
-        TransferenciaService.save(movimentacao)
+        enderecoE.save()
+        movimentacao.save()
       }
-      bean.produto?.let { ProdutoService.recalculaSaldo(it) }
+      produto?.recalculaSaldo()
     }
     else throw ViewException("Há espaço para endereças todos os ítens")
   }

@@ -2,6 +2,7 @@ package com.astrosoft.model
 
 import com.astrosoft.model.enums.EPalet
 import com.astrosoft.model.enums.EYES_NO
+import com.astrosoft.model.util.EntityId
 import com.astrosoft.utils.readFile
 import com.astrosoft.vok.ViewException
 import com.github.vok.framework.sql2o.Dao
@@ -26,7 +27,7 @@ data class Transferencia(
         var idMovProduto: Long? = 0,
         var idEnderecoSai: Long? = 0,
         var idUser: Long? = null
-                        ) : Entity<Long> {
+                        ) : EntityId() {
   companion object : Dao<Transferencia>
 
   val user

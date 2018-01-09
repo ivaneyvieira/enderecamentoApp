@@ -1,9 +1,15 @@
 package com.astrosoft.model
 
+import com.astrosoft.model.enums.ELado
+import com.astrosoft.model.enums.ETipoNivel
+import com.astrosoft.model.enums.EYES_NO
+import com.astrosoft.model.util.EntityId
+import com.astrosoft.model.util.scriptRunner
 import com.github.vok.framework.sql2o.Dao
 import com.github.vok.framework.sql2o.Entity
 import com.github.vok.framework.sql2o.Table
 import com.github.vok.framework.sql2o.findById
+import com.github.vok.framework.sql2o.vaadin.getAll
 import java.math.BigDecimal
 
 @Table("saldos")
@@ -14,7 +20,7 @@ data class Saldo(
         var saldoNConfirmado: BigDecimal? = BigDecimal.ZERO,
         var idEndereco: Long? = 0,
         var idProduto: Long? = 0
-                ) : Entity<Long> {
+                ) : EntityId() {
   companion object : Dao<Saldo>
 
   val endereco
@@ -23,32 +29,29 @@ data class Saldo(
   val produto
     get() = idProduto?.let { Produto.findById(it) }
 
-  fun endereco(bean: Saldo): Endereco? {
-    return EnderecoService.findById(bean.idEndereco)
-  }
 
-  fun produto(bean: Saldo): Produto {
-    return ProdutoService.findById(bean.idProduto) ?: throw BancoDadosException("Produto não encontrado", bean)
-  }
-
-  fun savePicking(bean: Saldo, enderecoPiking: Endereco, quantidade: BigDecimal = BigDecimal.ZERO) {
-    val mp = ProdutoService.movProdutoPicking(produto(bean))
-    val end = endereco(bean)
-    val transferencias = MovProdutoService.transferencias(mp).filter { t ->
-      TransferenciaService.enderecoS(t)?.equals(end) == true
+  fun savePicking(enderecoPiking: Endereco, quantidade: BigDecimal = BigDecimal.ZERO) {
+    val mp = produto?.movProdutoPicking()
+    val end = endereco
+    val transferencias = mp?.transferencias?.getAll().orEmpty().filter { t ->
+      t.enderecoSai?.equals(end) == true
     }
-    if(transferencias.isNotEmpty()) {
+    if (transferencias.isNotEmpty()) {
       val transferencia = transferencias[0]
-      transferencia.quantMov = transferencia.quantMov.add(quantidade)
-      TransferenciaService.save(transferencia)
+      val quant = transferencia.quantMov ?: BigDecimal.ZERO
+      transferencia.quantMov = quant.add(quantidade)
+      transferencia.save()
     }
     else {
-      val transferencia = Transferencia(idMovProduto = mp.id, idEnderecoEnt = enderecoPiking.id,
-                                        idEnderecoSai = endereco(bean)?.id ?: 0, quantMov = quantidade, observacao = "",
-                                        confirmacao = false)
-      TransferenciaService.save(transferencia)
+      val transferencia = Transferencia(idMovProduto = mp?.id,
+                                        idEnderecoEnt = enderecoPiking.id,
+                                        idEnderecoSai = end?.id ?: 0,
+                                        quantMov = quantidade,
+                                        observacao = "",
+                                        confirmacao = EYES_NO.N)
+      transferencia.save()
     }
-    mp.produto?.let { ProdutoService.recalculaSaldo(it) }
+    mp?.produto?.let { it.recalculaSaldo() }
   }
 
   fun findSaldos(tipoNivel: ETipoNivel?,
@@ -57,24 +60,29 @@ data class Saldo(
                  predio: String?,
                  nivel: String?,
                  apto: String?): List<Saldo> {
-    val s = QSaldo.saldo
-    val e = QEndereco.endereco
-    val a = QApto.apto
-    val n = QNivel.nivel
-    val p = QPredio.predio
-    val r = QRua.rua
-    var predicado = s.saldoConfirmado.gt(0).or(s.saldoNConfirmado.gt(0))
-    if(tipoNivel != null) predicado = predicado.and(n.tipoNivel.eq(tipoNivel))
-    if(rua != null) predicado = predicado.and(r.numero.eq(rua))
-    if(lado != null) predicado = predicado.and(p.lado.eq(lado))
-    if(predio != null) predicado = predicado.and(p.numero.eq(predio))
-    if(nivel != null) predicado = predicado.and(n.numero.eq(nivel))
-    if(apto != null) predicado = predicado.and(a.numero.eq(apto))
-    val predicadoWhere = predicado
-    return fetch { q ->
-      q.select(s).from(s).innerJoin(e).on(s.idEndereco.eq(e.id)).innerJoin(a).on(a.idEndereco.eq(e.id)).innerJoin(n).on(
-              a.idNivel.eq(n.id)).innerJoin(p).on(n.idPredio.eq(p.id)).innerJoin(r).on(p.idRua.eq(r.id)).where(
-              predicadoWhere).orderBy(e.tipoNivel.asc(), e.localizacao.asc())
-    }
+    val sql = """
+select distinct s.*
+  from saldos as s
+    inner join enderecos as e
+      on s.idEndereco = e.id
+    inner join aptos as a
+      on a.idEndereco = e.id
+    inner join niveis as n
+      on n.id =- a.idNivel
+    inner join predios as p
+      on p.id = n.idPredio
+    inner join ruas as r
+      on r.id = p.idRua
+where saldoConfirmado > 0
+  and saldoNConfirmado > 0
+  and (e.tipoNivel = '$tipoNivel' OR '${tipoNivel ?: ""}' = '')
+  and (r.numero = '${rua.orEmpty()}' OR '${rua.orEmpty()}' = '')
+  and (lado = '$lado' OR '${lado ?: ""}')
+  and (p.numero = '${predio.orEmpty()}' OR '${predio.orEmpty()}' = '')
+  and (n.numero = '${nivel.orEmpty()}' OR '${nivel.orEmpty()}' = '')
+  and (a.numero = '${apto.orEmpty()}' OR '${apto.orEmpty()}' = '')
+order by e.tipoNivel, e.localizacao
+    """.trimIndent()
+    return scriptRunner(Saldo::class.java, sql)
   }
 }

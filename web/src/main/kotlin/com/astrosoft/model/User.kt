@@ -1,6 +1,9 @@
 package com.astrosoft.model
 
+import br.com.pintos.legado.QueryTotvs
+import com.astrosoft.model.legado.QuerySaci
 import com.astrosoft.model.util.EntityId
+import com.astrosoft.utils.SystemUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.github.vok.framework.sql2o.Dao
 import com.github.vok.framework.sql2o.Entity
@@ -8,6 +11,7 @@ import com.github.vok.framework.sql2o.Table
 import com.github.vok.framework.sql2o.findById
 import com.github.vok.framework.sql2o.vaadin.and
 import com.github.vok.framework.sql2o.vaadin.dataProvider
+import com.github.vok.framework.sql2o.vaadin.getAll
 
 @Table("users")
 data class User(
@@ -21,7 +25,12 @@ data class User(
         var title: String?,
         var passw: String?
                ) : EntityId() {
-  companion object : Dao<User>
+  companion object : Dao<User> {
+    fun findUser(name: String?): User? {
+      return User.dataProvider.and { User::userName eq name }
+              .getAll().firstOrNull()
+    }
+  }
 
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
@@ -41,7 +50,6 @@ data class User(
     return result
   }
 
-
   @get:JsonIgnore
   val roles
     get() = UserRole.dataProvider.and { UserRole::users_id eq id }
@@ -53,38 +61,17 @@ data class User(
   private var totvs = QueryTotvs()
   private var saci = QuerySaci()
 
-  fun findUser(name: String?): User? {
-    val u = QUser.user
-    return fetchOne { query -> query.selectFrom(u).where(u.userName.eq(name)) }
-  }
 
-  fun update(bean: User): User {
-    val foto = totvs.imagemChapa(bean.chapa)
+  override fun save() {
+    val foto = totvs.imagemChapa(chapa)
     foto.let { imagem ->
       val fotoByte: ByteArray? = SystemUtils.resize(imagem?.imagem, 80, 100)
-      bean.fotoPerfil = fotoByte?: ByteArray(0)
+      fotoPerfil = fotoByte ?: ByteArray(0)
     }
-    val senha = saci.userSenha(bean.userSaci)?.senha ?: ""
-    bean.passw = senha
-    bean.userSaci = bean.userName
-    return super.update(bean)
-  }
-
-  fun insert(bean: User): User {
-    val foto = totvs.imagemChapa(bean.chapa)
-    foto.let { imagem ->
-      val fotoByte = SystemUtils.resize(imagem?.imagem, 80, 100)
-      bean.fotoPerfil = fotoByte?: kotlin.ByteArray(0)
-    }
-    bean.userSaci = bean.userName
-    val senha = saci.userSenha(bean.userSaci)?.senha ?: ""
-    bean.passw = senha
-    return super.insert(bean)
-  }
-
-  fun findEmpilhadores(): List<User> {
-    val users = findAll()
-    return users.filter { it.roles.any { it.name == "Empilhador" } }
+    val senha = saci.userSenha(userSaci ?: "")?.senha ?: ""
+    passw = senha
+    userSaci = userName
+    super.save()
   }
 }
 
@@ -92,9 +79,8 @@ data class User(
 data class Role(
         override var id: Long? = null,
         var name: String?
-               ) : Entity<Long> {
+               ) : EntityId() {
   companion object : Dao<Role>
-
 
   @get:JsonIgnore
   val users

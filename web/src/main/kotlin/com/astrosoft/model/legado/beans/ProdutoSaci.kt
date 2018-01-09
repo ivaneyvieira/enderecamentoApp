@@ -1,8 +1,5 @@
 package com.astrosoft.model.legado.beans
 
-import br.com.astrosoft.model.enderecamento.jpaBeans.Produto
-import br.com.astrosoft.model.enderecamento.services.ProdutoService
-import br.com.astrosoft.model.framework.utils.lpad
 import com.astrosoft.model.Produto
 import com.astrosoft.utils.lpad
 import java.math.BigDecimal
@@ -24,10 +21,11 @@ data class ProdutoSaci(var prdno: String? = null,
   fun saveProdutoSaci(): Produto {
     val prdno = getPrdnoSaci().lpad(16, " ")
     val grade = grade
-    val produto = ProdutoService.findProduto(prdno, grade)
+    val produto = Produto.findProduto(prdno, grade)
     val produtoNovo = produto ?: Produto()
     val produtoUpdate = updateProduto(produtoNovo)
-    return ProdutoService.save(produtoUpdate)
+    produtoUpdate.save()
+    return produtoUpdate
   }
   
   private fun updateProduto(produto: Produto): Produto {

@@ -1,5 +1,6 @@
 package com.astrosoft.model
 
+import com.astrosoft.model.dtos.SaldoEndereco
 import com.astrosoft.model.enums.EPalet
 import com.astrosoft.model.enums.ETipoAltura
 import com.astrosoft.model.enums.ETipoEndereco
@@ -14,7 +15,6 @@ import com.github.vok.framework.sql2o.Table
 import com.github.vok.framework.sql2o.vaadin.and
 import com.github.vok.framework.sql2o.vaadin.dataProvider
 import com.github.vok.framework.sql2o.vaadin.getAll
-import java.math.BigDecimal
 
 @Table("enderecos")
 data class Endereco(
@@ -24,7 +24,25 @@ data class Endereco(
         var localizacao: String? = null,
         var tipoNivel: ETipoNivel? = null
                    ) : EntityId() {
-  companion object : Dao<Endereco>
+  companion object : Dao<Endereco>{
+    fun disponiveis(palet: EPalet, altura: ETipoAltura, ruas: List<Rua>): List<Endereco> {
+      val ruasQuery = if (ruas.isEmpty()) Rua.ruasPulmao() else ruas
+
+      val params = mapOf("tipoPalet" to palet.sigla,
+                         "tipoAltura" to altura,
+                         "ruas" to ruasQuery.joinToString(separator = ","))
+      return scriptRunner(Endereco::class.java, "/sql/enderecosDisponiveis.sql".readFile(), params)
+    }
+
+    fun recebimento(): Endereco {
+      val endereco = Endereco.dataProvider
+              .and { Endereco::tipoEndereco eq ETipoEndereco.RECEBIMENTO }
+              .getAll()
+              .firstOrNull()
+      if (endereco != null) return endereco
+      throw ViewException("Não há endereco de recebimento cadastrado")
+    }
+  }
 
   @get:JsonIgnore
   val apto
@@ -42,23 +60,18 @@ data class Endereco(
   val transferenciaSai
     get() = Transferencia.dataProvider.and { Transferencia::idEnderecoSai eq id }
 
-  fun recebimento(): Endereco {
-    val endereco = Endereco.dataProvider
-            .and { Endereco::tipoEndereco eq ETipoEndereco.RECEBIMENTO }
-            .getAll()
-            .firstOrNull()
-    if (endereco != null) return endereco
-    throw ViewException("Não há endereco de recebimento cadastrado")
-  }
-
-  fun disponiveis(palet: EPalet, altura: ETipoAltura, ruas: List<Rua>): List<Endereco> {
-    val ruasQuery = if (ruas.isEmpty()) Rua.ruasPulmao() else ruas
-
-    val params = mapOf("tipoPalet" to palet.sigla,
-                       "tipoAltura" to altura,
-                       "ruas" to ruasQuery.joinToString(separator = ","))
-    return scriptRunner(Endereco::class.java, "/sql/enderecosDisponiveis.sql".readFile(), params)
-  }
+  @get:JsonIgnore
+  var tipoPalet: EPalet?
+    get() {
+      return apto?.tipoPalet
+    }
+    set(tipoPalet) {
+      val a = apto
+      if(a != null) {
+        a.tipoPalet = tipoPalet ?: EPalet.P
+        a.save()
+      }
+    }
 
   fun enrederecoPickingQuebec(): Endereco? = findEndereco(ETipoNivel.PULMAO, "00-00-00-00")
 
@@ -74,7 +87,6 @@ data class Endereco(
       ETipoEndereco.EXPEDICAO   -> "Espedicao"
       else                      -> null
     }
-
 
   private fun descricaoDeposito(): String {
     return tipoNivel.toString() + " " + localizacao.orEmpty()
@@ -136,7 +148,3 @@ order by sum(saldoConfirmado) desc
   }
 }
 
-data class SaldoEndereco(
-        var idEndereco: Long? = null,
-        var saldo: BigDecimal? = null
-                        )

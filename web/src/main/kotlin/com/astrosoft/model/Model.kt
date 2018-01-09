@@ -6,6 +6,7 @@ import com.astrosoft.model.enums.ELado
 import com.astrosoft.model.enums.EPalet
 import com.astrosoft.model.enums.ETipoAltura
 import com.astrosoft.model.enums.ETipoNivel
+import com.astrosoft.model.util.EntityId
 import com.astrosoft.model.util.scriptRunner
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.github.vok.framework.sql2o.*
@@ -21,7 +22,7 @@ data class Apto(
         var tipoAltura: ETipoAltura? = ETipoAltura.BAIXA,
         var idNivel: Long?,
         var idEndereco: Long?
-               ) : Entity<Long> {
+               ) : EntityId() {
   companion object : Dao<Apto>
 
   val nivel
@@ -38,7 +39,7 @@ data class Nivel(
         var altura: BigDecimal? = BigDecimal.ZERO,
         var tipoNivel: ETipoNivel? = ETipoNivel.PULMAO,
         var idPredio: Long? = 0
-                ) : Entity<Long> {
+                ) : EntityId() {
   companion object : Dao<Nivel>
 
   val predio
@@ -47,7 +48,6 @@ data class Nivel(
   @get:JsonIgnore
   val aptos
     get() = Apto.dataProvider.and { Apto::idNivel eq id }
-
 }
 
 @Table("predios")
@@ -56,7 +56,7 @@ data class Predio(
         var numero: String? = "",
         var lado: ELado? = ELado.IMPAR,
         var idRua: Long? = 0
-                 ) : Entity<Long> {
+                 ) : EntityId() {
   companion object : Dao<Predio>
 
   val rua
@@ -71,7 +71,7 @@ data class Predio(
 data class Rua(
         override var id: Long? = null,
         var numero: String? = ""
-              ) : Entity<Long> {
+              ) : EntityId() {
   companion object : Dao<Rua> {
     fun ruasPulmao(): List<Rua> {
       var sql = """
@@ -99,11 +99,10 @@ from ruas as r
   inner join predios as p
     on p.idRua = r.id
 where r.numero <> '00'
-    """.trimIndent()
+    """
 
     scriptRunner(RuaPredio::class.java, sql)
   }
-
 
   private fun findNiveis(lado: ELado): List<Nivel> {
     val sql = """
@@ -113,7 +112,7 @@ from predios as p
     on p.id = n.idPredio
 where lado = $lado
   and idRua = $id
-    """.trimIndent()
+    """
     return scriptRunner(Nivel::class.java, sql)
   }
 
@@ -141,4 +140,4 @@ GROUP BY a.id
   }
 }
 
-fun <T : Any> Any?.isNull() = NativeSqlFilter<T>("$this is null", mapOf())
+

@@ -1,19 +1,21 @@
 package com.astrosoft.model
 
+import com.astrosoft.model.dtos.QuantProduto
 import com.astrosoft.model.enums.EMovTipo
+import com.astrosoft.model.util.EntityId
 import com.astrosoft.model.util.scriptRunner
+import com.astrosoft.model.util.updateRunner
 import com.astrosoft.utils.lpad
 import com.astrosoft.utils.readFile
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.github.vok.framework.sql2o.Dao
-import com.github.vok.framework.sql2o.Entity
 import com.github.vok.framework.sql2o.Table
+import com.github.vok.framework.sql2o.findById
 import com.github.vok.framework.sql2o.vaadin.and
 import com.github.vok.framework.sql2o.vaadin.dataProvider
 import com.github.vok.framework.sql2o.vaadin.getAll
 import java.math.BigDecimal
 import java.time.LocalDate
-import java.time.LocalDateTime
 
 @Table("produtos")
 data class Produto(
@@ -28,8 +30,22 @@ data class Produto(
         var preco: BigDecimal? = BigDecimal.ZERO,
         var quantVolumes: Int? = 0,
         var estoqueMinimo: BigDecimal? = BigDecimal.ZERO
-                  ) : Entity<Long> {
-  companion object : Dao<Produto>
+                  ) : EntityId() {
+  companion object : Dao<Produto> {
+    fun findProduto(prdno: String, grade: String?): Produto? {
+      return Produto.dataProvider
+              .and { Produto::prdno eq prdno }
+              .and { Produto::grade eq grade }
+              .getAll().firstOrNull()
+    }
+
+    fun quantidadePalete(prdno: String): BigDecimal? {
+      var param = mapOf("prdno" to prdno)
+
+      return scriptRunner(QuantProduto::class.java, "/sql/produtosPalete.sql".readFile(), param)
+              .firstOrNull()?.quantMov
+    }
+  }
 
   @get:JsonIgnore
   val movProduto
@@ -39,12 +55,6 @@ data class Produto(
   val saldos
     get() = Saldo.dataProvider.and { Saldo::idProduto eq id }
 
-  fun findProduto(prdno: String, grade: String?): Produto? {
-    return Produto.dataProvider
-            .and { Produto::prdno eq prdno }
-            .and { Produto::grade eq grade }
-            .getAll().firstOrNull()
-  }
 
   fun findProdutoQuery(query: String): List<Produto> {
     if (query.trim().length <= 6) {
@@ -70,16 +80,11 @@ data class Produto(
   }
 
   fun findProduto(barra: String): List<Produto> {
-    Produto.dataProvider.and { Produto::codbar eq barra }.getAll()
+    return Produto.dataProvider.and { Produto::codbar eq barra }.getAll()
   }
 
   private fun findProdutoPrdno(prdno: String): List<Produto> {
     return Produto.dataProvider.and { Produto::prdno eq prdno }.getAll()
-  }
-
-  fun quantidadePalete(prdno: String): BigDecimal? {
-    return scriptRunner(QuantProduto::class.java, "/sql/produtosPalete.sql".readFile())
-            .firstOrNull()?.quantMov
   }
 
   private fun movimentacaoTransferencia(): Movimentacao {
@@ -87,7 +92,7 @@ data class Produto(
     val movChave = Movimentacao.findMovimentacao(chaveTransferencia)
     return if (movChave == null) {
       val movimentacao = Movimentacao()
-      movimentacao.documento = prdno?.trim { it <= ' ' }?:""
+      movimentacao.documento = prdno?.trim { it <= ' ' } ?: ""
       movimentacao.observacao = "Tranferencia Interna"
       movimentacao.chave = chaveTransferencia
       movimentacao.data = LocalDate.now()
@@ -98,134 +103,114 @@ data class Produto(
     else movChave
   }
 
-  fun saldoPulmaoTotal(bean: Produto): Double {
-    return saldosPulmao(bean).map { s -> s.saldoConfirmado.toDouble() }.sum()
+  fun saldoPulmaoTotal(): Double {
+    return saldosPulmao().map { s -> s.saldoConfirmado?.toDouble() ?: 0.00 }.sum()
   }
 
-  private fun zeraSaldos(bean: Produto) {
-    val s = QSaldo.saldo
-    execute { q ->
-      q.update(s)
-              .where(s.idProduto.eq(bean.id))
-              .set(s.saldoConfirmado, BigDecimal.ZERO)
-              .set(s.saldoNConfirmado, BigDecimal.ZERO)
+  private fun zeraSaldos() {
+    saldos.getAll().forEach { saldo ->
+      saldo.saldoConfirmado = BigDecimal.ZERO
+      saldo.saldoNConfirmado = BigDecimal.ZERO
+      saldo.save()
     }
   }
 
-  fun saldos(bean: Produto): List<Saldo> {
-    val s = QSaldo.saldo
-    return fetch { q -> q.selectFrom(s).where(s.idProduto.eq(bean.id)) }
+
+  fun recalculaSaldo() {
+    updateRunner("/sql/recalculaSaldo.sql".readFile(), mapOf("produto" to (id ?: 0)))
   }
 
-  fun recalculaSaldo(bean: Produto) {
-    zeraSaldos(bean)
-    val saldos: List<SaldoRecalculado> = nativeQuery("/sql/recalculaSaldo.sql",
-                                                     ::SaldoRecalculado,
-                                                     Parameter.set("idProduto", bean.id))
-    saldos.forEach { saldo -> saldo.salva() }
+
+  fun transferenciasPicking(): List<Transferencia> {
+    val mp = movProdutoPicking()
+    val mpNew = MovProduto.findById(mp.id ?: 0)
+    return mpNew?.transferencias?.getAll().orEmpty()
   }
 
-  fun transferencias(bean: Produto): List<Transferencia> {
-    val t = QTransferencia.transferencia
-    val m = QMovProduto.movProduto
-    return fetch { query ->
-      query.select(t).from(t).innerJoin(m).on(m.idMovimentacao.eq(t.id)).where(m.idProduto.eq(bean.id))
-    }
+  fun enderecosComSaldo(): List<Endereco> {
+    var sql = """
+      select distinct e.*
+from enderecos as e
+  INNER JOIN saldos as s
+    ON s.idEndereco = e.id
+WHERE s.idProduto = $id
+  and saldoConfirmado > 0
+    """.trimIndent()
+    return scriptRunner(Endereco::class.java, sql)
   }
 
-  fun transferenciasPicking(bean: Produto): List<Transferencia> {
-    val mp = movProdutoPicking(bean)
-    val mpNew = MovProdutoService.refreshNew(mp)
-    return MovProdutoService.transferencias(mpNew)
+  fun saldosPulmao(): List<Saldo> {
+    val sql = """
+select distinct s.*
+  from saldos as s
+    inner join enderecos as e
+      on s.idEndereco = e.id
+where e.tipoNivel = 'PULMAO'
+  and idProduto = 5110
+  and saldoConfirmado <> 0
+    """.trimIndent()
+    return scriptRunner(Saldo::class.java, sql)
   }
 
-  fun enderecosComSaldo(bean: Produto): List<Endereco> {
-    val s = QSaldo.saldo
-    val e = QEndereco.endereco
-    return fetch { query ->
-      query.select(e).from(s).innerJoin(e).on(s.idEndereco.eq(e.id)).where(s.idProduto.eq(bean.id).and(s.saldoConfirmado.gt(
-              0))).distinct()
-    }
+  fun saldoEm(endereco: Endereco): Saldo? {
+    return Saldo.dataProvider.and { Saldo::idEndereco eq endereco.id }
+            .and { Saldo::idProduto eq (id ?: 0) }
+            .getAll().firstOrNull()
   }
 
-  fun saldosPulmao(produto: Produto): List<Saldo> {
-    val s = QSaldo.saldo
-    val e = QEndereco.endereco
-    val a = QApto.apto
-    val n = QNivel.nivel
-    return fetch { query ->
-      query.select(s).from(s).innerJoin(e).on(s.idEndereco.eq(e.id)).innerJoin(a).on(a.idEndereco.eq(e.id)).innerJoin(n).on(
-              a.idNivel.eq(n.id)).where(n.tipoNivel.eq(br.com.astrosoft.model.enderecamento.entityEnum.ETipoNivel.PULMAO).and(
-              s.idProduto.eq(produto.id)).and(s.saldoConfirmado.ne(
-              BigDecimal.ZERO)))
-    }
-  }
-
-  fun saldoEm(bean: Produto, endereco: Endereco): Saldo? {
-    val s = QSaldo.saldo
-    return fetchOne { q -> q.selectFrom(s).where(s.idProduto.eq(bean.id).and(s.idEndereco.eq(endereco.id))) }
-  }
-
-  fun movProdutos(bean: Produto): List<MovProduto> {
-    val m = QMovProduto.movProduto
-    return fetch { query -> query.selectFrom(m).where(m.idProduto.eq(bean.id)) }
-  }
-
-  fun movProdutoPicking(bean: Produto): MovProduto {
-    val movPicking = movimentacaoPicking(bean)
-    val mov = MovimentacaoService.findMovProduto(movPicking, bean)
+  fun movProdutoPicking(): MovProduto {
+    val movPicking = movimentacaoPicking()
+    val mov = movPicking.findMovProduto(this)
     return if (mov == null) {
       val mp = MovProduto()
       mp.idMovimentacao = movPicking.id
-      mp.idProduto = bean.id
+      mp.idProduto = id
       mp.quantCan = BigDecimal.ZERO
       mp.quantMov = BigDecimal.ZERO
       mp.quantPalete = BigDecimal.ZERO
-      MovProdutoService.save(mp)
+      mp.save()
+      mp
     }
     else mov
   }
 
-  private fun montaChavePicking(bean: Produto): String {
-    return MovimentacaoService.montaChave("PK", bean.prdno.trim { it <= ' ' }.lpad(6, "0") + bean.grade)
+  private fun montaChavePicking(): String {
+    return Movimentacao.montaChave("PK", (prdno ?: "").trim { it <= ' ' }.lpad(6, "0") + (grade ?: ""))
   }
 
   private fun montaChaveTransferencia(): String {
-    return MovimentacaoService.montaChave("TI", prdno?.trim { it <= ' ' }.lpad(6, "0") + grade)
+    return Movimentacao.montaChave("TI", prdno?.trim { it <= ' ' }.lpad(6, "0") + grade)
   }
 
-  private fun movimentacaoPicking(bean: Produto): Movimentacao {
-    val chavePicking = montaChavePicking(bean)
-    val mov = MovimentacaoService.findMovimentacao(chavePicking)
+  private fun movimentacaoPicking(): Movimentacao {
+    val chavePicking = montaChavePicking()
+    val mov = Movimentacao.findMovimentacao(chavePicking)
     return if (mov == null) {
       val movimentacao = Movimentacao()
-      movimentacao.documento = bean.prdno.trim { it <= ' ' }
+      movimentacao.documento = (prdno ?: "").trim { it <= ' ' }
       movimentacao.observacao = "Pincking"
       movimentacao.chave = chavePicking
       movimentacao.data = LocalDate.now()
-      movimentacao.tipoMov = br.com.astrosoft.model.enderecamento.entityEnum.EMovTipo.SAIDA
-      MovimentacaoService.save(movimentacao)
+      movimentacao.tipoMov = EMovTipo.SAIDA
+      movimentacao.save()
+      movimentacao
     }
     else mov
   }
 
-  fun movProdutoTransferencia(bean: Produto): MovProduto? {
-    val movTransferencia = movimentacaoTransferencia(bean)
-    val mov = MovimentacaoService.findMovProduto(movTransferencia, bean)
+  fun movProdutoTransferencia(): MovProduto? {
+    val movTransferencia = movimentacaoTransferencia()
+    val mov = movTransferencia.findMovProduto(this)
     return if (mov == null) {
       val mp = MovProduto()
       mp.idMovimentacao = movTransferencia.id
-      mp.idProduto = bean.id
+      mp.idProduto = id
       mp.quantCan = BigDecimal.ZERO
       mp.quantMov = BigDecimal.ZERO
-      MovProdutoService.save(mp)
+      mp.save()
+      mp
     }
     else mov
   }
 }
 
-data class QuantProduto(
-        var quantMov: BigDecimal? = null,
-        var qt: Int? = null,
-        var data: LocalDateTime? = null
-                       )
