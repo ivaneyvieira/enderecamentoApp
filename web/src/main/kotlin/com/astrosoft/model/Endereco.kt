@@ -112,6 +112,7 @@ where tipoEndereco = 'DEPOSITO'
 
 
   fun saldosNaoZerado(): List<Saldo> {
+    dataProvider
     val sql = """
 select s.*
 from saldos as s
@@ -127,7 +128,8 @@ where idEndereco = :id
 
   val enderecosPicking: List<Endereco> by lazy {
     val enderecos = Endereco.dataProvider.getAll()
-    enderecos.filter { e -> e.tipoNivel == ETipoNivel.PICKING || e.tipoEndereco == ETipoEndereco.EXPEDICAO }
+    enderecos.filter { e -> e.tipoNivel == ETipoNivel.PICKING ||
+                            e.tipoEndereco == ETipoEndereco.EXPEDICAO }
   }
 
   fun enderecoPiking(produto: Produto): List<Endereco> {
